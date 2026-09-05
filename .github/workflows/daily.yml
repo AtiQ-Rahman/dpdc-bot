@@ -1,0 +1,57 @@
+name: Daily balance
+
+on:
+  schedule:
+    # 03:00 UTC = 09:00 Asia/Dhaka. GitHub often fires late, so the job
+    # waits and then sends as close to 09:00 as it can.
+    - cron: "45 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: dpdc-state
+  cancel-in-progress: false
+
+jobs:
+  broadcast:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - name: Wait until 09:00 Dhaka
+        if: github.event_name == 'schedule'
+        run: |
+          target=$(date -u -d "today 03:00" +%s)
+          now=$(date -u +%s)
+          wait=$(( target - now ))
+          if [ "$wait" -gt 0 ] && [ "$wait" -lt 1800 ]; then
+            echo "sleeping ${wait}s"
+            sleep "$wait"
+          fi
+
+      - name: Broadcast
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          DPDC_CLIENT_SECRET: ${{ secrets.DPDC_CLIENT_SECRET }}
+        run: python -m dpdc_bot.broadcast
+
+      - name: Commit daily stats
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stats/history.csv
+          if git diff --cached --quiet; then
+            echo "no stats change to commit"
+          else
+            git commit -m "chore(stats): daily run $(TZ=Asia/Dhaka date +%F) [skip ci]"
+            git push
+          fi
