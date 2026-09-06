@@ -61,6 +61,9 @@ def format_balance(data, previous=None, now=None):
                 lines.append(f"Recharge: +Tk {delta:,.2f} since last check")
             elif delta < -0.005:
                 lines.append(f"Used    : Tk {-delta:,.2f} since last check")
+            else:
+                # Say so explicitly - a missing line reads like a bug.
+                lines.append("Change  : no change since last check")
 
     if balance < LOW_BALANCE_THRESHOLD:
         lines.append("")

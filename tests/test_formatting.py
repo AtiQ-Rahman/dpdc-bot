@@ -33,8 +33,9 @@ def test_usage_shown_when_balance_falls():
     assert "48.54" in out
 
 
-def test_no_change_line_when_flat():
+def test_flat_balance_says_no_change():
     out = format_balance(SAMPLE, previous="151.46")
+    assert "no change since last check" in out
     assert "Recharge" not in out and "Used" not in out
 
 
